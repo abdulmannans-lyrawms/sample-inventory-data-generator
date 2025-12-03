@@ -10,6 +10,7 @@ import argparse
 import sys
 import random
 from pathlib import Path
+from datetime import datetime
 
 # Check Python version
 if sys.version_info < (3, 6):
@@ -18,13 +19,14 @@ if sys.version_info < (3, 6):
     sys.exit(1)
 
 
-def generate_sku(sku_type: int, index: int) -> str:
+def generate_sku(sku_type: int, index: int, global_seed: int = None) -> str:
     """
     Generate unique SKU based on type and index.
     
     Args:
         sku_type: 0 for numeric, 1 for alphanumeric, 2 for alphanumeric with special chars
         index: Sequential index for the SKU (1-based)
+        global_seed: Optional seed for random generation (for variety between runs)
     
     Returns:
         Generated unique SKU string
@@ -36,43 +38,46 @@ def generate_sku(sku_type: int, index: int) -> str:
     if sku_type == 0:
         # Type 1: Numerical SKU
         # Random number between 6 and 10 digits
-        # Use occurrence as seed for deterministic but random-looking numbers
-        rng = random.Random(occurrence)
+        # Use occurrence + global_seed for variety between runs
+        seed = (occurrence * 1000) + (global_seed or 0)
+        rng = random.Random(seed)
         num_digits = rng.randint(6, 10)
         min_value = 10 ** (num_digits - 1)  # e.g., 100000 for 6 digits
         max_value = (10 ** num_digits) - 1   # e.g., 999999 for 6 digits
         return str(rng.randint(min_value, max_value))
     elif sku_type == 1:
         # Type 2: Alphanumeric SKU
-        # Auto-generated 3-letter prefix + 5-digit number, e.g. ABA-10001
-        # Map occurrence -> AAA, AAB, AAC, ... in a deterministic way
+        # Auto-generated 3-letter prefix + 5-digit number
+        # Use occurrence + global_seed for variety between runs
+        seed = (occurrence * 1000) + (global_seed or 0)
+        rng = random.Random(seed)
         letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        idx = occurrence - 1
-        a = letters[(idx // (26 * 26)) % 26]
-        b = letters[(idx // 26) % 26]
-        c = letters[idx % 26]
-        prefix = f"{a}{b}{c}"
-
-        base_num = 10000  # any 5-digit starting number
-        num_part = base_num + occurrence - 1
+        
+        # Generate random 3-letter prefix
+        prefix = ''.join(rng.choice(letters) for _ in range(3))
+        
+        # Generate random 5-digit number
+        num_part = rng.randint(10000, 99999)
         return f"{prefix}-{num_part:05d}"
     else:
         # Type 3: Alphanumeric with special characters
         # Varied patterns with different special characters and formats
-        rng = random.Random(occurrence)
+        # Use occurrence + global_seed for variety between runs
+        seed = (occurrence * 1000) + (global_seed or 0)
+        rng = random.Random(seed)
         letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        special_chars = ["-", "_", "#", "@", " ", " - ", " #", " # "]
         
-        # Generate random components
+        # Generate random components with more variety
         prefix_len = rng.randint(1, 4)
         prefix = ''.join(rng.choice(letters) for _ in range(prefix_len))
         
         num1 = rng.randint(100, 9999)
         num2 = rng.randint(100, 9999)
         num3 = rng.randint(10, 999)
+        num4 = rng.randint(10, 99)
         
-        # Choose different pattern formats
-        pattern_type = occurrence % 7
+        # Choose different pattern formats with more randomness
+        pattern_type = rng.randint(0, 9)
         if pattern_type == 0:
             return f"{prefix}-{num1}-{num2}  #{rng.choice(letters)}{rng.choice(letters)}s{num3}"
         elif pattern_type == 1:
@@ -85,8 +90,14 @@ def generate_sku(sku_type: int, index: int) -> str:
             return f"{prefix}-{num1}#{num2}-{num3}"
         elif pattern_type == 5:
             return f"{prefix}_{num1}_{num2}-{num3}"
-        else:
+        elif pattern_type == 6:
+            return f"{prefix}@{num1}_{num2}#{num3}"
+        elif pattern_type == 7:
             return f"{prefix}-{num1} - {num2}  #{rng.choice(letters)}{rng.choice(letters)}s{num3}"
+        elif pattern_type == 8:
+            return f"{prefix}#{num1}_{num2}-{num3}@{num4}"
+        else:
+            return f"{prefix}-{num1}_{num2}  #{rng.choice(letters)}s{num3}L{rng.randint(1,9)}"
 
 
 def main() -> None:
@@ -128,7 +139,9 @@ def main() -> None:
 
     # Project root is the directory containing this script
     project_root = Path(__file__).resolve().parent
-    csv_output_path = project_root / "products_generated.csv"
+    # Generate filename with timestamp to make each run unique
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    csv_output_path = project_root / f"products_generated_{timestamp}.csv"
 
     header = [
         "fulfilmentclient",
@@ -178,6 +191,9 @@ def main() -> None:
         "0",  # expired_stock
     ]
 
+    # Generate a global seed based on timestamp for variety between runs
+    global_seed = int(datetime.now().timestamp() * 1000) % 1000000
+    
     # Generate all rows first
     rows = []
     seen_skus = set()  # Track SKUs to ensure uniqueness
@@ -185,7 +201,7 @@ def main() -> None:
     for i in range(1, num_rows + 1):
         # Cycle through the three SKU types (0, 1, 2)
         sku_type = (i - 1) % 3
-        sku = generate_sku(sku_type, i)
+        sku = generate_sku(sku_type, i, global_seed)
         
         # Ensure uniqueness - if duplicate found, append index to make it unique
         original_sku = sku
