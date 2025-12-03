@@ -140,7 +140,7 @@ def main() -> None:
         total_stock,  # total_stock
         "1886",  # free_stock
         "2088",  # cycling_stock
-        "0",  # anticipation_stock
+        "1",  # anticipation_stock
         "202",  # backordered_stock
         "0",  # total_inventory_value
         "",  # next_expiration_date
