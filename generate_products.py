@@ -8,6 +8,7 @@ Requires Python 3.6+ (uses f-strings and pathlib).
 import csv
 import argparse
 import sys
+import random
 from pathlib import Path
 
 # Check Python version
@@ -33,30 +34,59 @@ def generate_sku(sku_type: int, index: int) -> str:
     occurrence = ((index - 1) // 3) + 1
     
     if sku_type == 0:
-        # Numeric SKU: similar to 874837204
-        # Start from a base number and increment uniquely for each occurrence
-        base_num = 874837200
-        return str(base_num + occurrence)
+        # Type 1: Numerical SKU
+        # Random number between 6 and 10 digits
+        # Use occurrence as seed for deterministic but random-looking numbers
+        rng = random.Random(occurrence)
+        num_digits = rng.randint(6, 10)
+        min_value = 10 ** (num_digits - 1)  # e.g., 100000 for 6 digits
+        max_value = (10 ** num_digits) - 1   # e.g., 999999 for 6 digits
+        return str(rng.randint(min_value, max_value))
     elif sku_type == 1:
-        # Alphanumeric SKU: similar to PHO-13081
-        # Use different prefixes to ensure uniqueness
-        prefixes = ["PHO", "ABC", "XYZ", "DEF", "GHI", "JKL", "MNO", "PQR", "STU", "VWX"]
-        prefix = prefixes[(occurrence - 1) % len(prefixes)]
-        num_part = 13080 + occurrence
+        # Type 2: Alphanumeric SKU
+        # Auto-generated 3-letter prefix + 5-digit number, e.g. ABA-10001
+        # Map occurrence -> AAA, AAB, AAC, ... in a deterministic way
+        letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        idx = occurrence - 1
+        a = letters[(idx // (26 * 26)) % 26]
+        b = letters[(idx // 26) % 26]
+        c = letters[idx % 26]
+        prefix = f"{a}{b}{c}"
+
+        base_num = 10000  # any 5-digit starting number
+        num_part = base_num + occurrence - 1
         return f"{prefix}-{num_part:05d}"
     else:
-        # Alphanumeric with special characters: similar to F111-5665 - 410  #LFs22L1
-        # Pattern: {letter}{num}-{num} - {num}  #{letters}s{num}L{num}
-        prefix_chars = ["LF", "AB", "CD", "EF", "GH", "IJ", "KL", "MN", "OP", "QR", "ST", "UV", "WX", "YZ", "AA", "BB", "CC", "DD", "EE", "FF"]
-        prefix = prefix_chars[(occurrence - 1) % len(prefix_chars)]
-        # Use occurrence directly to ensure uniqueness
-        letter = chr(65 + ((occurrence - 1) % 26))  # A-Z
-        num1 = 111 + (occurrence - 1)
-        num2 = 5665 + (occurrence - 1)
-        num3 = 410 + (occurrence - 1)
-        num4 = 22 + ((occurrence - 1) % 1000)
-        last_digit = ((occurrence - 1) % 10) + 1
-        return f"{letter}{num1}-{num2} - {num3}  #{prefix}s{num4:02d}L{last_digit}"
+        # Type 3: Alphanumeric with special characters
+        # Varied patterns with different special characters and formats
+        rng = random.Random(occurrence)
+        letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        special_chars = ["-", "_", "#", "@", " ", " - ", " #", " # "]
+        
+        # Generate random components
+        prefix_len = rng.randint(1, 4)
+        prefix = ''.join(rng.choice(letters) for _ in range(prefix_len))
+        
+        num1 = rng.randint(100, 9999)
+        num2 = rng.randint(100, 9999)
+        num3 = rng.randint(10, 999)
+        
+        # Choose different pattern formats
+        pattern_type = occurrence % 7
+        if pattern_type == 0:
+            return f"{prefix}-{num1}-{num2}  #{rng.choice(letters)}{rng.choice(letters)}s{num3}"
+        elif pattern_type == 1:
+            return f"{prefix}#{num1}-{num2}-{num3}"
+        elif pattern_type == 2:
+            return f"{prefix}_{num1}-{num2}@{num3}"
+        elif pattern_type == 3:
+            return f"{prefix} - {num1} - {num2}  #{rng.choice(letters)}{rng.choice(letters)}s{num3}L{rng.randint(1,9)}"
+        elif pattern_type == 4:
+            return f"{prefix}-{num1}#{num2}-{num3}"
+        elif pattern_type == 5:
+            return f"{prefix}_{num1}_{num2}-{num3}"
+        else:
+            return f"{prefix}-{num1} - {num2}  #{rng.choice(letters)}{rng.choice(letters)}s{num3}"
 
 
 def main() -> None:
