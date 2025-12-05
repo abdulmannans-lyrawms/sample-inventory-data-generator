@@ -141,7 +141,7 @@ def main() -> None:
     project_root = Path(__file__).resolve().parent
     # Generate filename with timestamp to make each run unique
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    csv_output_path = project_root / f"products_generated_{timestamp}.csv"
+    csv_output_path = project_root / f"{fulfilmentclient}_{timestamp}.csv"
 
     header = [
         "fulfilmentclient",
